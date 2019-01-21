@@ -5,12 +5,18 @@ class Simulator(object):
         self.alpha = input("Alpha : ")
         self.gamma = input("Gamma : ")
         self.cycle = input("Cycle : ") 
-        self.difficulty = input("Difficulty : ")
+        self.difficulty = 0 
 
-        self.public_chain   = []  #list of  block of the official Blockchain 
+        
+        self.public_chain   = []  # list of  block of the official Blockchain 
         self.private_chain  = []  # list of block of the Selfish Miner Blockchain 
         
-      
+        self.t0 = 600             # Average Time to  mine a block 
+        self.t2016_HM  = 0        # 
+        self.t2016_SM  = 0        # Time to mine 2016 blocks 
+        self.lambda_HM = 0        # Time to mine a block for HM
+        self.lambda_SM = 0        # Time to mine a block for SM  
+
         #OUTPUT 
         self.honnest_orphan     = 0   # nb of unpublished block of the honest miner 
         self.selfish_orphan     = 0   # nb of unpublished block of the selfish miner
@@ -59,12 +65,23 @@ class Simulator(object):
         else : 
             self.__cycle = value  
 
+    def timeToMining(self):
+        p = 1 - self.alpha
+        self.lambda_HM = self.t0 / p 
+        self.lambda_SM = self.t0 /self.alpha 
+
+    
+ #   def ajustSMdifficulty(self): 
+  #      if len(self.private_chain) % 2016 : 
+   #         return 
+
+
  # Simulate awarding a Bitcoin block
  #  a => Percent of the total network owned by the selfish mining pool
  #  g => If two branches are competing, g (gamma) is the percent of the
  #       honest miners which join the selfish mining pool in mining on
  #       top of the selfish block
-    
+
     def getFirstMiner(self,a,g) : 
         rnd = uniform(0,1)
 
@@ -82,11 +99,15 @@ class Simulator(object):
         
     def override(self) :
         self.public_chain = []
+        self.t2016_HM = self.t2016_SM
+        self.t2016_SM = 0 
         for private_block in self.private_chain : 
             self.public_chain.append(private_block)
 
     def fork(self):
         self.private_chain = []
+        self.t2016_SM = self.t2016_HM
+        #self.t2016_SM = 0 
         for public_block in self.public_chain :
             self.private_chain.append(public_block)
 
@@ -107,6 +128,7 @@ class Simulator(object):
         selfish_blocks = 0 
         while attack :
             delta = len(self.private_chain) - len(self.public_chain)
+            self.timeToMining()
             #Initial
             if delta == 0 :
                 #print("Delta == 0 ")
@@ -115,18 +137,21 @@ class Simulator(object):
                     if res == 0 : 
                         #print("HM found a block first")
                         #print("End of attack : SM abandon")
-                        self.public_chain.append(0)
+                        self.public_chain.append(0) 
+                        self.t2016_HM += self.lambda_HM
                         attack = False 
                     if res == 1 : 
                         #print("SM found a block first on PRIVATE CHAIN")
                         #print("End attack : override official Blockchain")
                         self.private_chain.append(1)
+                        self.t2016_SM += self.lambda_HM
                         self.override()
                         attack = False   
                     if res == -1 : 
                        # print("SM found a block first")
                        # print("End attack : override official Blockchain ")    
                         self.private_chain.append(-1)
+                        self.t2016_SM += self.lambda_SM
                         selfish_blocks   += 1
                         self.override()
                         attack = False 
@@ -135,26 +160,31 @@ class Simulator(object):
                     if res == 0 :
                         #print("HM found a block first")
                         self.public_chain.append(0)
+                        self.t2016_HM += self.lambda_HM
                     if res == -1 : 
                         #print("SM found a block first")
                         selfish_blocks += 1
                         self.private_chain.append(-1) 
+                        self.t2016_SM += self.lambda_SM
             if delta == 1 : 
                 #print("delta == 1 ")
                 res = self.getFirstMiner(self.alpha,self.gamma)
                 if res == 0 : 
                    # print("HM found a block first on PUBLIC chain")
                     self.public_chain.append(0)
+                    self.t2016_HM += self.lambda_HM
                 if res == 1 : 
-                   # print("SM found a block first on PRIVATE CHAIN")
+                   # print("HM found a block first on PRIVATE CHAIN")
                    # print("end attack : override official Blockchain")
                     self.private_chain.append(1)
+                    self.t2016_SM += self.lambda_HM 
                     self.override()
                     attack = False 
                 if res == -1 : 
                    # print("SM found a block first")
                     selfish_blocks += 1 
                     self.private_chain.append(-1)
+                    self.t2016_SM += self.lambda_SM
                     self.override()
                     attack = False 
                    # print("end attack : override official Blockchain ")
@@ -164,12 +194,14 @@ class Simulator(object):
                 if res == 0 : 
                     #print("HM found a block first")
                     self.public_chain.append(0)
+                    self.t2016_HM += self.lambda_HM
                     attack = False 
                     #print("end attack : SM abandon") 
                 if res == -1 : 
                     #print("SM found a block first")
                     selfish_blocks +=1 
                     self.private_chain.append(-1) 
+                    self.t2016_SM += self.lambda_SM
         selfish_blocks = 0 
         self.fork()
 
@@ -202,6 +234,8 @@ class Simulator(object):
         print("o     Blocks mined by the HM pools : " + str(self.total_blocks - self.selfish_blocks))
         print("       -> Mined on top of HM chain : " + str(self.honnest_blocks))
         print("       -> Mined on top of SM chain : " + str(self.honnest_bis_blocks))
+        print("o     Time to attend 2016 blocks   : " + str((self.t2016_SM)/86400))
+
         
 
 
