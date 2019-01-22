@@ -4,22 +4,24 @@ from random import *
 
 class Simulator(object):
 	def __init__(self,*args):
-		self.alpha = 0.25#input("Alpha : ")
-		self.gamma = 0.25#input("Gamma : ")
-		self.cycle = 3024#input("Cycle : ") 
+		self.alpha  = input("Alpha : ")
+		self.gamma  = input("Gamma : ")
+		self.cycle  = input("Cycle : ") 
+		self.adjust = False
 	
 		
 		self.public_chain       = []  # list of  block of the official Blockchain 
 		self.private_chain      = []  # list of block of the Selfish Miner Blockchain 
 		
+		self.save_time 			= []
 		self.t0                 = 600 # Average Time to  mine a block 
 		self.t2016				= 0 
-		self.t2016_public       = 0   # Time to mine 2016 blocks in the official chain
-		self.t2016_private      = 0   # Time to mine 2016 blocks in the SM fork
+		self.time_public        = 0   # Time to mine 2016 blocks in the official chain
+		self.time_private       = 0   # Time to mine 2016 blocks in the SM fork
 		self.lambda_HM          = 0   # Time to mine a block for HM
 		self.lambda_SM          = 0   # Time to mine a block for SM  
 		self.delta 				= 1   # if =! 1 need to ajust difficulty 
-		self.difficulty		    = 1
+		self.difficulty		    = 1   # Difficulty adjusted every 2016 blocs 
 
 		#OUTPUT 
 		self.time_dico 			= {}
@@ -71,20 +73,34 @@ class Simulator(object):
 			self.__cycle = value  
 
 
+	def showTime(self): 
+		i=2016 
+		for time in self.save_time :
+			print(str(i) + "  : " + str( time / 84600 ) )
+			i = i+2016 
+
+	def updateT2016 (self): 
+		t = len(self.save_time) 
+		if t > 1 :
+			self.t2016 = self.save_time[t-1]-self.save_time[t-2]
+			#print(self.t2016/86400)
+		else : 
+			self.t2016 = self.time_public
+
 	def timeToMining(self): 
 		p = 1 - self.alpha # 0.5 <= p < 1
 		if len(self.public_chain) % 2016 == 0  and len(self.public_chain) != 0 : # difficulty adjustement 
-			print("AJUSTEMENT : " + str(len(self.public_chain) ))
-			#self.Time2016()
-			print(self.t2016)
-			print(self.t2016_public)
-			self.t2016 = self.t2016_public - self.t2016
-			self.delta = self.t2016 / (self.t0 * 2016)
-			self.time_dico[len(self.public_chain)] = self.t2016
-			
-			if self.delta > 1 :
-				self.difficulty = self.difficulty / self.delta 
-		   
+			if self.adjust == False :
+				self.adjust = True 
+				self.save_time.append(self.time_public)
+				self.updateT2016()
+				self.delta = self.t2016 / (self.t0 * 2016)
+				self.time_dico[len(self.public_chain)] = self.t2016
+				if self.delta != 1 :
+					self.difficulty = self.difficulty / self.delta 
+				
+		if len(self.public_chain) % 2016 == 1 and len(self.public_chain) > 1 :
+			self.adjust = False 
 		self.lambda_HM = (self.t0 / p ) * self.difficulty
 		self.lambda_SM = (self.t0 / self.alpha ) * self.difficulty
 
@@ -116,15 +132,15 @@ class Simulator(object):
 
 	def override(self) :
 		self.public_chain = []
-		self.t2016_public = self.t2016_private
-		#self.t2016_private = 0 
+		self.time_public = self.time_private
+		#self.time_private = 0 
 		for private_block in self.private_chain : 
 			self.public_chain.append(private_block)
 
 	def fork(self):
 		self.private_chain = []
-		self.t2016_private = self.t2016_public
-		#self.t2016_private = 0 
+		self.time_private = self.time_public
+		#self.time_private = 0 
 		for public_block in self.public_chain :
 			self.private_chain.append(public_block)
 
@@ -155,21 +171,25 @@ class Simulator(object):
 						#print("HM found a block first")
 						#print("End of attack : SM abandon")
 						self.public_chain.append(0) 
-						self.t2016_public += self.t0
+						self.selfish_orphan += 1 
+						self.time_public += self.t0
 						attack = False 
 					elif res == 1 :
-						#print("SM found a block first on PRIVATE CHAIN")
+						#print("HM found a block first on PRIVATE CHAIN")
 						#print("End attack : override official Blockchain")
+						self.selfish_orphan += 1 
+						self.honnest_orphan += 1
 						self.private_chain.append(1)
-						self.t2016_private += self.t0
+						self.time_private += self.t0
 						self.override()
 						attack = False   
 					elif res == -1 : 
 					   # print("SM found a block first")
 					   # print("End attack : override official Blockchain ")    
 						self.private_chain.append(-1)
-						self.t2016_private += self.t0
-						selfish_blocks += 1
+						self.time_private 	+= self.t0
+						selfish_blocks    	+= 1
+						self.honnest_orphan += 1
 						self.override()
 						attack = False 
 				else : # initial 
@@ -177,31 +197,36 @@ class Simulator(object):
 					if res == 0 :
 						#print("HM found a block first")
 						self.public_chain.append(0)
-						self.t2016_public += self.lambda_HM
+						self.selfish_orphan += 1 
+						self.time_public += self.lambda_HM
 					elif res == -1 : 
 						#print("SM found a block first")
 						selfish_blocks += 1
 						self.private_chain.append(-1) 
-						self.t2016_private += self.lambda_SM
+						self.time_private += self.lambda_SM
 			if height_diff == 1 : 
 				#print("height_diff == 1 ")
 				res = self.getFirstMiner(self.alpha, self.gamma)
 				if res == 0 : 
-				   # print("HM found a block first on PUBLIC chain")
+				    #print("HM found a block first on PUBLIC chain")
 					self.public_chain.append(0)
-					self.t2016_public += self.t0
+					self.selfish_orphan += 1 
+					self.time_public 	+= self.t0
 				elif res == 1 : 
 				   # print("HM found a block first on PRIVATE CHAIN")
 				   # print("end attack : override official Blockchain")
 					self.private_chain.append(1)
-					self.t2016_private += self.t0 
+					self.selfish_orphan += 1 
+					self.honnest_orphan += 1
+					self.time_private += self.t0 
 					self.override()
 					attack = False 
 				elif res == -1 : 
 				   # print("SM found a block first")
 					selfish_blocks += 1 
 					self.private_chain.append(-1)
-					self.t2016_private += self.t0
+					self.honnest_orphan += 1
+					self.time_private += self.t0
 					self.override()
 					attack = False 
 				   # print("end attack : override official Blockchain ")
@@ -212,13 +237,15 @@ class Simulator(object):
 					#print("HM found a block first")
 					#print("end attack : SM abandon") 
 					self.public_chain.append(0)
-					self.t2016_public += self.lambda_HM
+					self.selfish_orphan += 1 
+					self.time_public 	+= self.lambda_HM
 					attack = False 
 				elif res == -1 : 
 					#print("SM found a block first")
-					selfish_blocks += 1 
-					self.private_chain.append(-1) 
-					self.t2016_private += self.lambda_SM
+					self.private_chain.append(-1)
+					selfish_blocks 		+= 1  
+					self.honnest_orphan += 1
+					self.time_private 	+= self.lambda_SM
 		selfish_blocks = 0 
 		self.fork()
 
@@ -245,19 +272,27 @@ class Simulator(object):
 	def getResult(self):
 		self.runSimulation()
 		self.annalizeBlocks()
-		print("o     Blocks in the public chain   : " + str(self.total_blocks))
-		print("o     Blocks mined by the SM pools : " + str(self.selfish_blocks))
-		print("o     Blocks mined by the HM pools : " + str(self.total_blocks - self.selfish_blocks))
-		print("       -> Mined on top of HM chain : " + str(self.honnest_blocks))
-		print("       -> Mined on top of SM chain : " + str(self.honnest_bis_blocks))
-		#print( self.selfish_blocks * self.lambda_SM )
-		#print((self.total_blocks *self.lambda_HM))
-		for val in self.time_dico.values() :
-			print(val)
-
-		print("o     Days to attend "+ str(self.total_blocks) + " blocks   : " + str((self.t2016_public)/86400))
-
+		print("\n")
+		print("o     Blocks in the public chain       : " + str(self.total_blocks))
+		print("      	-> Mined by the SM pools      : " + str(self.selfish_blocks))
+		print("      	-> Mined by the HM pools      : " + str(self.total_blocks - self.selfish_blocks))
+		print("       	  -> Mined on top of HM chain : " + str(self.honnest_blocks))
+		print("       	  -> Mined on top of SM chain : " + str(self.honnest_bis_blocks))
+		print("\n")
+		print("o     Orphan blocks mined by SM pools  : " + str(self.selfish_orphan))
+		print("o     Orphan blocks mined by HM pools  : " + str(self.honnest_orphan))
+		print("\n")
+		print("o     Days to attend "+ str(self.total_blocks) + " blocks       : " + str(int((self.time_public)/86400)) + " d ")
+		print("o     Days to attend 2016 blocks by DA : ")
+		for key, val in self.time_dico.items() :
+			print("		   - " + str(key) + " : " + str(int(val/84600))+ " d ")		
+		print("o     Average minutes to mined a block : " + str(int((self.time_public/self.total_blocks) /60))+ " min ")
 		
+		print("o     Average blocks mined during 1 attack cycle : " + str(int(self.total_blocks/self.cycle ) )) 
+		print("o     Average blocks mined by SM during 1 attack cycle  :" + str(int(self.selfish_blocks/self.cycle )) )
+		print("\n")
+		print("o     Revenue ratio of the miner       : " + str((self.selfish_blocks / self.time_public) *self.t0)) 
+		print("o     Long-term apparent hash rate     : "+ str(self.selfish_blocks/self.total_blocks)) 
 
 
 
