@@ -5,7 +5,7 @@ from random import *
 class Simulator(object):
 	def __init__(self,*args):
 		self.alpha  = input("Alpha : ")
-		self.gamma  = input("Gamma : ")
+		self.gamma  = 1.00#input("Gamma : ")
 		self.cycle  = input("Cycle : ") 
 		self.adjust = False
 	
@@ -165,7 +165,7 @@ class Simulator(object):
 			#Initial
 			if height_diff == 0 :
 				#print("height_diff == 0 ")
-				if selfish_blocks == 1 : 
+				if selfish_blocks == 1 : #(1,1)
 					res = self.getFirstMiner(self.alpha, self.gamma)
 					if res == 0 :
 						#print("HM found a block first")
@@ -206,21 +206,12 @@ class Simulator(object):
 						self.time_private += self.lambda_SM
 			if height_diff == 1 : 
 				#print("height_diff == 1 ")
-				res = self.getFirstMiner(self.alpha, self.gamma)
+				res = self.timeToMining()
 				if res == 0 : 
 				    #print("HM found a block first on PUBLIC chain")
 					self.public_chain.append(0)
 					self.selfish_orphan += 1 
 					self.time_public 	+= self.t0
-				elif res == 1 : 
-				   # print("HM found a block first on PRIVATE CHAIN")
-				   # print("end attack : override official Blockchain")
-					self.private_chain.append(1)
-					self.selfish_orphan += 1 
-					self.honnest_orphan += 1
-					self.time_private += self.t0 
-					self.override()
-					attack = False 
 				elif res == -1 : 
 				   # print("SM found a block first")
 					selfish_blocks += 1 
@@ -273,23 +264,23 @@ class Simulator(object):
 		self.runSimulation()
 		self.annalizeBlocks()
 		print("\n")
-		print("o     Blocks in the public chain       : " + str(self.total_blocks))
-		print("      	-> Mined by the SM pools      : " + str(self.selfish_blocks))
-		print("      	-> Mined by the HM pools      : " + str(self.total_blocks - self.selfish_blocks))
-		print("       	  -> Mined on top of HM chain : " + str(self.honnest_blocks))
-		print("       	  -> Mined on top of SM chain : " + str(self.honnest_bis_blocks))
+		print("o     Blocks in the public chain       : "  + str(self.total_blocks))
+		print("      	 -> Mined by the SM pools      : " + str(self.selfish_blocks))
+		print("      	 -> Mined by the HM pools      : " + str(self.total_blocks - self.selfish_blocks))
+		print("       	   -> Mined on top of HM chain : " + str(self.honnest_blocks))
+		print("       	   -> Mined on top of SM chain : " + str(self.honnest_bis_blocks))
 		print("\n")
 		print("o     Orphan blocks mined by SM pools  : " + str(self.selfish_orphan))
 		print("o     Orphan blocks mined by HM pools  : " + str(self.honnest_orphan))
 		print("\n")
-		print("o     Days to attend "+ str(self.total_blocks) + " blocks       : " + str(int((self.time_public)/86400)) + " d ")
+		print("o     Days to attend "+ str(self.total_blocks) + " blocks      : " + str(int((self.time_public)/86400)) + " d ")
 		print("o     Days to attend 2016 blocks by DA : ")
 		for key, val in self.time_dico.items() :
-			print("		   - " + str(key) + " : " + str(int(val/84600))+ " d ")		
+			print("     - " + str(key) + " : " + str(int(val/84600))+ " d ")		
 		print("o     Average minutes to mined a block : " + str(int((self.time_public/self.total_blocks) /60))+ " min ")
 		
 		print("o     Average blocks mined during 1 attack cycle : " + str(int(self.total_blocks/self.cycle ) )) 
-		print("o     Average blocks mined by SM during 1 attack cycle  :" + str(int(self.selfish_blocks/self.cycle )) )
+		print("o     Average blocks mined by SM during 1 attack cycle  :" + str(int((self.selfish_blocks + self.selfish_orphan)/self.cycle )))
 		print("\n")
 		print("o     Revenue ratio of the miner       : " + str((self.selfish_blocks / self.time_public) *self.t0)) 
 		print("o     Long-term apparent hash rate     : "+ str(self.selfish_blocks/self.total_blocks)) 
