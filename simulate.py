@@ -5,7 +5,7 @@ from random import *
 class Simulator(object):
 	def __init__(self,*args):
 		self.alpha  = input("Alpha : ")
-		self.gamma  = 1.00#input("Gamma : ")
+		self.gamma  = input("Gamma : ")
 		self.cycle  = input("Cycle : ") 
 		self.adjust = False
 	
@@ -171,7 +171,7 @@ class Simulator(object):
 						#print("HM found a block first")
 						#print("End of attack : SM abandon")
 						self.public_chain.append(0) 
-						self.selfish_orphan += 1 
+						self.selfish_orphan += 1
 						self.time_public += self.t0
 						attack = False 
 					elif res == 1 :
@@ -197,7 +197,6 @@ class Simulator(object):
 					if res == 0 :
 						#print("HM found a block first")
 						self.public_chain.append(0)
-						self.selfish_orphan += 1 
 						self.time_public += self.lambda_HM
 					elif res == -1 : 
 						#print("SM found a block first")
@@ -210,7 +209,6 @@ class Simulator(object):
 				if res == 0 : 
 				    #print("HM found a block first on PUBLIC chain")
 					self.public_chain.append(0)
-					self.selfish_orphan += 1 
 					self.time_public 	+= self.t0
 				elif res == -1 : 
 				   # print("SM found a block first")
@@ -228,7 +226,6 @@ class Simulator(object):
 					#print("HM found a block first")
 					#print("end attack : SM abandon") 
 					self.public_chain.append(0)
-					self.selfish_orphan += 1 
 					self.time_public 	+= self.lambda_HM
 					attack = False 
 				elif res == -1 : 
@@ -271,7 +268,7 @@ class Simulator(object):
 		print("       	   -> Mined on top of SM chain : " + str(self.honnest_bis_blocks))
 		print("\n")
 		print("o     Orphan blocks mined by SM pools  : " + str(self.selfish_orphan))
-		print("o     Orphan blocks mined by HM pools  : " + str(self.honnest_orphan))
+		#print("o     Orphan blocks mined by HM pools  : " + str(self.honnest_orphan))
 		print("\n")
 		print("o     Days to attend "+ str(self.total_blocks) + " blocks      : " + str(int((self.time_public)/86400)) + " d ")
 		print("o     Days to attend 2016 blocks by DA : ")
